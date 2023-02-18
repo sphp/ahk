@@ -20,13 +20,11 @@ MsgBox % Inst.page.Evaluate("document.body.innerText").value
 
 script =
 ( LTrim join
-	e1=$x('//*[contains(text(),\'Verify you are human\')]');
+	e1=$x("//*[contains(text(),'Verify you are human')]");
 	e2=$x("//input[@value='Verify you are human']");
 	if(e1.length)e1[0].click();
 	if(e2.length)e2[0].click();
 )
 Inst.page.Evaluate(script)
-
-
 Esc::ExitApp
 Return
