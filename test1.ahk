@@ -16,11 +16,17 @@ IniWrite, % Inst.pageid, % inif, chrome, pageid
 
 MsgBox % Inst.page.Evaluate("window.location.href").value
 MsgBox % Inst.page.Evaluate("document.body.innerText").value
-MsgBox % Inst.page.Evaluate("document.body.innerHTML").value
+;MsgBox % Inst.page.Evaluate("document.body.innerHTML").value
 
-;Inst.page.Evaluate("$x('//*[contains(text(),\'Verify you are human\')]')[0].click()")
+script =
+( LTrim join
+	e1=$x('//*[contains(text(),\'Verify you are human\')]');
+	e2=$x("//input[@value='Verify you are human']");
+	if(e1.length)e1[0].click();
+	if(e2.length)e2[0].click();
+)
+Inst.page.Evaluate(script)
 
-;Sleep 5000
 
 Esc::ExitApp
 Return
