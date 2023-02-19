@@ -21,10 +21,15 @@ flags  := " --no-first-run"
 Inst:= new Chrome(userdr, weburl, flags, chpath, chport)
 Sleep 2000
 
-askfor = How do I make an HTTPS request?
+askfor = what is command line flag to disable chrome-extension?
 script = e1=$x("//textarea");e2=$x("//button[contains(@class,'absolute')]");if(e1.length)e1[0].value='%askfor%';if(e2.length)e2[0].click();
 Inst.page.Evaluate(script)
 
+Esc::ExitApp
+Return
+
+
+/*
 script = 
 ( LTrim join
 	e1=$x("//*[contains(text(),'Verify you are human')]");
@@ -32,10 +37,8 @@ script =
 	if(e1.length)e1[0].click();
 	if(e2.length)e2[0].click();
 )
-;Inst.page.Evaluate(script)
-Esc::ExitApp
-Return
-
+Inst.page.Evaluate(script)
+*/
 ;localhost:{chport}/devtools/inspector.html?ws=localhost:{chport}/devtools/page/{targetId}
 ;localhost:{chport}/json/protocol/
 ;localhost:{chport}/json/new?{url}
