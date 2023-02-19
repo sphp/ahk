@@ -1,7 +1,24 @@
-class Chrome
-{
+
+class Chrome{
 	static DebugPort := 9222
 	static Browser := "chrome.exe"
+	GetWin(title){
+		OB :={}
+		WinGet, list, list,% title
+		Loop, % list {
+			id := list%A_Index%
+			WinGet, pid, PID, ahk_id %id%
+			WinGet, name, ProcessName, ahk_id %id%
+			WinGet, path, ProcessPath, ahk_id %id%
+			WinGet, minmax, MinMax, ahk_id %id%
+			if minmax=-1
+				WinRestore, ahk_id %id%
+			WinGetPos, x, y, w, h, ahk_id %id%
+			WinGetTitle, title, ahk_id %id%
+			OB[A_Index] := {id:id,pid:pid,name:name,path:path,minmax:minmax,title:title,x:x,y:y,w:w,h:h}
+		}
+		return (OB.count()=1 ? OB[1] : OB)
+	}
 	CliEscape(Param){
 		return """" RegExReplace(Param, "(\\*)""", "$1$1\""") """"
 	}
@@ -21,7 +38,6 @@ class Chrome
 			throw Exception("Chrome could not be found")
 		if DebugPort>1
 			this.DebugPort := DebugPort
-
 		if(this.GetPort()!=this.DebugPort){
 			Run, % this.CliEscape(ChromePath)
 			. " --remote-debugging-port=" this.DebugPort
@@ -29,27 +45,41 @@ class Chrome
 			. (Flags ? " " Flags : "")
 			. URLString
 			,,, ChPID
+			Sleep 1000
 			this.PID := ChPID
 		}
 		this.page := this.GetByURL(url)
-		if !this.PID && this.pageid
-			this.PID := this.Activate(pageid)
 	}
-	Activate(pageid){
-		http := ComObjCreate("WinHttp.WinHttpRequest.5.1")
-		http.open("GET", "http://127.0.0.1:" this.DebugPort "/json/activate/" this.pageid)
-		http.send()
-		WinGet, PID, PID, A
-		return PID
-	}
-	GetByURL(url){
+	GetByURL(url, fnCallback:=""){
 		for k,val in this.GetPageList() {
 			if instr(val.url, StrReplace(StrReplace(obj.url,"http://"),"https://")) {
 				this.pageid := val.id
+				this.win := this.GetWin(val.title)
 				return new this.Page(val.webSocketDebuggerUrl, fnCallback)
 			}
 		}
 		return False
+	}
+	GetByID(pageid, DebugPort, chpath:="", fnCallback:="") {
+		this.DebugPort := DebugPort
+		if(chpath!=""){
+			P := StrSplit(StrReplace(chpath,"\", "/"), "/")
+			this.Browser := P[P.MaxIndex()]
+		}
+		if this.GetPort()==this.DebugPort {
+			for k,val in this.GetPageList() {
+				if instr(val.id, pageid) {
+					this.win := this.GetWin(val.title)
+					return new this.Page(val.webSocketDebuggerUrl, fnCallback)
+				}
+			}
+		}
+		return False
+	}
+	Activate(pageid, DebugPort){
+		http := ComObjCreate("WinHttp.WinHttpRequest.5.1")
+		http.open("GET", "http://127.0.0.1:" DebugPort "/json/activate/" pageid)
+		http.send()
 	}
 	GetPort(){
 		for Item in ComObjGet("winmgmts:").ExecQuery("SELECT CommandLine FROM Win32_Process WHERE Name = '" this.Browser "'") {
@@ -68,8 +98,7 @@ class Chrome
 		Connected := False
 		ID := 0
 		Responses := []
-		__New(wsurl, fnCallback:="")
-		{
+		__New(wsurl, fnCallback:=""){
 			this.fnCallback := fnCallback
 			this.BoundKeepAlive := this.Call.Bind(this, "Browser.getVersion",, False)
 			if IsObject(wsurl)
@@ -80,8 +109,7 @@ class Chrome
 			while !this.Connected
 				Sleep, 50
 		}
-		Call(DomainAndMethod, Params:="", WaitForResponse:=True)
-		{
+		Call(DomainAndMethod, Params:="", WaitForResponse:=True){
 			if !this.Connected
 				throw Exception("Not connected to tab")
 			ID := this.ID += 1
@@ -123,14 +151,12 @@ class Chrome
 		Event(EventName, Event){
 			if this.Parent
 				this := this.Parent
-			if (EventName == "Open")
-			{
+			if (EventName == "Open") {
 				this.Connected := True
 				BoundKeepAlive := this.BoundKeepAlive
 				SetTimer, %BoundKeepAlive%, 15000
 			}
-			else if (EventName == "Message")
-			{
+			else if (EventName == "Message") {
 				data := Chrome.Jxon_Load(Event.data)
 				fnCallback := this.fnCallback
 				if (newData := %fnCallback%(data))
@@ -139,12 +165,10 @@ class Chrome
 				if this.responses.HasKey(data.ID)
 					this.responses[data.ID] := data
 			}
-			else if (EventName == "Close")
-			{
+			else if (EventName == "Close") {
 				this.Disconnect()
 			}
-			else if (EventName == "Error")
-			{
+			else if (EventName == "Error") {
 				throw Exception("Websocket Error!")
 			}
 		}
@@ -166,7 +190,7 @@ class Chrome
 				this.hWnd := hWnd
 				Gui, Add, ActiveX, vWB, Shell.Explorer
 				Gui, %hOld%: Default
-				WB.Navigate("about:<!DOCTYPE html><meta http-equiv='X-UA-Compatible'" . "content='IE=edge'><body></body>")
+				WB.Navigate("about:<!DOCTYPE html><meta http-equiv='X-UA-Compatible' content='IE=edge'><body></body>")
 				while (WB.ReadyState < 4)
 					sleep, 50
 				this.document := WB.document
@@ -191,8 +215,7 @@ class Chrome
 				this.document.parentWindow.ws.close(Code, Reason)
 			}
 			Disconnect(){
-				if this.hWnd
-				{
+				if this.hWnd {
 					this.Close()
 					Gui, % this.hWnd ": Destroy"
 					this.hWnd := False
@@ -215,7 +238,6 @@ class Chrome
 			{
 				ln := ObjLength(StrSplit(SubStr(src, 1, pos), "`n"))
 				col := pos - InStr(src, "`n",, -(StrLen(src)-pos+1))
-				
 				msg := Format("{}: line {} col {} (char {})"
 				,  (next == "")   ? ["Extra data", ch := SubStr(src, pos)][1]
 				: (next == "'")   ? "Unterminated string starting at"
@@ -228,7 +250,6 @@ class Chrome
 				: [ "Expecting JSON value(string, number, [true, false, null], object or array)"
 				, ch := SubStr(src, pos, (SubStr(src, pos)~="[\]\},\s]|$")-1) ][1]
 				, ln, col, pos)
-				
 				throw Exception(msg, -1, ch)
 			}
 			is_array := is_arr[obj := stack[1]]
@@ -348,7 +369,6 @@ class Chrome
 			{
 				if IsObject(k) || (k == "")
 					throw Exception("Invalid object key.", -1, k ? Format("<Object at 0x{:p}>", &obj) : "<blank>")
-				
 				if !is_array
 					out .= ( ObjGetCapacity([k], 1) ? %this_fn%(k) : q . k . q ) ;// key
 				. ( indent ? ": " : ":" ) ; token + padding
